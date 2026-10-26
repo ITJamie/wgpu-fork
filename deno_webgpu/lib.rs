@@ -205,6 +205,7 @@ impl GPU {
             },
             gl: wgpu_types::GlBackendOptions::default(),
             noop: wgpu_types::NoopBackendOptions::default(),
+            metal: wgpu_types::MetalBackendOptions::default(),
           },
           display: None,
         },

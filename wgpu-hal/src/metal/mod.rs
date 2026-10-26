@@ -139,6 +139,7 @@ impl OsFeatures {
 #[derive(Debug)]
 pub struct Instance {
     flags: wgt::InstanceFlags,
+    options: wgt::MetalBackendOptions,
 }
 
 impl Instance {
@@ -154,7 +155,10 @@ impl crate::Instance for Instance {
         profiling::scope!("Init Metal Backend");
         // We do not enable metal validation based on the validation flags as it affects the entire
         // process. Instead, we enable the validation inside the test harness itself in tests/src/native.rs.
-        Ok(Instance { flags: desc.flags })
+        Ok(Instance {
+            flags: desc.flags,
+            options: desc.backend_options.metal.clone(),
+        })
     }
 
     unsafe fn create_surface(
@@ -195,7 +199,7 @@ impl crate::Instance for Instance {
         let instance_flags = self.flags;
         let mut adapters: Vec<crate::ExposedAdapter<Api>> = devices
             .into_iter()
-            .map(|d| AdapterShared::expose(d, instance_flags))
+            .filter_map(|d| AdapterShared::expose(d, instance_flags, &self.options))
             .collect();
         adapters.sort_by_key(|ad| {
             (
@@ -372,6 +376,8 @@ struct PrivateTextureFormatCapabilities {
 
 #[derive(Clone, Debug)]
 struct PrivateDisabilities {
+    broken_workgroup_size_attribute: bool,
+    use_runtime_array_pointers: bool,
     /// Near depth is not respected properly on some Intel GPUs.
     broken_viewport_near_depth: bool,
     /// Multi-target clears don't appear to work properly on Intel GPUs.
@@ -416,7 +422,7 @@ impl AdapterShared {
         log::debug!("{private_texture_format_caps:#?}");
 
         Self {
-            disabilities: PrivateDisabilities::new(&device),
+            disabilities: PrivateDisabilities::new(&device, private_caps.msl_version),
             private_caps,
             private_texture_format_caps,
             device,
@@ -428,14 +434,15 @@ impl AdapterShared {
     fn expose(
         device: Retained<ProtocolObject<dyn MTLDevice>>,
         instance_flags: wgt::InstanceFlags,
-    ) -> crate::ExposedAdapter<Api> {
+        options: &wgt::MetalBackendOptions,
+    ) -> Option<crate::ExposedAdapter<Api>> {
         autoreleasepool(|_| {
             let name = device.name().to_string();
-            let capabilities_query = CapabilitiesQuery::new(&device);
+            let capabilities_query = CapabilitiesQuery::with_options(&device, options)?;
             let shared = AdapterShared::new(device, &capabilities_query);
             let features = capabilities_query.features();
             let capabilities = capabilities_query.capabilities(instance_flags);
-            crate::ExposedAdapter {
+            Some(crate::ExposedAdapter {
                 info: wgt::AdapterInfo {
                     name,
                     // These are hardcoded based on typical values for Metal devices
@@ -450,7 +457,7 @@ impl AdapterShared {
                 features,
                 capabilities,
                 adapter: Adapter::new(Arc::new(shared)),
-            }
+            })
         })
     }
 }

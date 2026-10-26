@@ -42,6 +42,19 @@ Bottom level categories:
 
 ## Unreleased
 
+### Added/New Features
+
+#### Metal
+
+- Add exact and maximum Metal Shading Language version controls with optional environment overrides.
+
+### Bug Fixes
+
+#### Metal
+
+- Work around Intel Metal compute compiler failures using pipeline descriptor workgroup limits and runtime-array pointers. By @ITJamie; related to [#5827](https://github.com/gfx-rs/wgpu/issues/5827).
+- Probe compiler support before selecting a Metal Shading Language version. Based on alecanales' proposed fix in [#10592](https://github.com/gfx-rs/wgpu/issues/10592).
+
 ## v30.0.1 (2026-08-21)
 
 ### Bug Fixes
